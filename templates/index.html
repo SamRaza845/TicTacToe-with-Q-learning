@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tic-Tac-Toe</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #F2D2BD;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            color: #A95C68;
+        }
+        #game {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            grid-template-rows: repeat(3, 100px);
+            gap: 5px;
+        }
+        .cell {
+            width: 100px;
+            height: 100px;
+            background-color: #FFF;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            cursor: pointer;
+        }
+        #remarks {
+            margin-top: 20px;
+            font-size: 24px;
+        }
+        #restart {
+            margin-top: 10px;
+            padding: 10px 20px;
+            font-size: 18px;
+            background-color: #A95C68;
+            color: #E6E6FA;
+            border: none;
+            cursor: pointer;
+        }
+        #win-counts {
+            margin-top: 10px;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <h1>WELCOME TO TIC-TAC-TOE</h1>
+    <div id="game"></div>
+    <div id="remarks">Playing...</div>
+    <button id="restart">Restart Game</button>
+    <div id="win-counts">Human Wins: 0 | AI Wins: 0 | Draws: 0</div>
+    <script>
+        const game = document.getElementById('game');
+        const remarks = document.getElementById('remarks');
+        const restartButton = document.getElementById('restart');
+        const winCounts = document.getElementById('win-counts');
+
+        let board = [
+            ['-', '-', '-'],
+            ['-', '-', '-'],
+            ['-', '-', '-']
+        ];
+        let currentPlayer = 'X';
+        let humanWins = 0;
+        let aiWins = 0;
+        let draws = 0;
+        let gameOver = false;
+
+        function renderBoard() {
+            game.innerHTML = '';
+            for (let i = 0; i < 3; i++) {
+                for (let j = 0; j < 3; j++) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('cell');
+                    cell.textContent = board[i][j];
+                    cell.addEventListener('click', () => handleMove(i, j));
+                    game.appendChild(cell);
+                }
+            }
+        }
+
+        async function handleMove(row, col) {
+            if (board[row][col] !== '-' || currentPlayer !== 'X' || gameOver) return;
+            board[row][col] = 'X';
+            renderBoard();
+
+            let response = await fetch('/move', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    board: board,
+                    player: 'X',
+                    move: [row, col]
+                })
+            });
+            let data = await response.json();
+            board = data.board;
+            renderBoard();
+
+            if (data.winner) {
+                handleGameOver(data.winner);
+                return;
+            }
+
+            currentPlayer = 'O';
+            response = await fetch('/move', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    board: board,
+                    player: 'O'
+                })
+            });
+            data = await response.json();
+            board = data.board;
+            renderBoard();
+
+            if (data.winner) {
+                handleGameOver(data.winner);
+                return;
+            }
+
+            currentPlayer = 'X';
+        }
+
+        function handleGameOver(winner) {
+            gameOver = true;
+            if (winner === 'X') {
+                remarks.textContent = 'Human player wins!';
+                humanWins++;
+            } else if (winner === 'O') {
+                remarks.textContent = 'Agent wins!';
+                aiWins++;
+            } else {
+                remarks.textContent = "It's a draw!";
+                draws++;
+            }
+            updateWinCounts();
+        }
+
+        async function restartGame() {
+            const response = await fetch('/restart', {
+                method: 'POST'
+            });
+            const data = await response.json();
+            board = data.board;
+            currentPlayer = data.player;
+            gameOver = false;
+            remarks.textContent = 'Playing...';
+            renderBoard();
+            if (currentPlayer === 'O') {
+                await handleAIMove();
+            }
+        }
+
+        async function handleAIMove() {
+            const response = await fetch('/move', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    board: board,
+                    player: 'O'
+                })
+            });
+            const data = await response.json();
+            board = data.board;
+            renderBoard();
+
+            if (data.winner) {
+                handleGameOver(data.winner);
+            } else {
+                currentPlayer = 'X';
+            }
+        }
+
+        function updateWinCounts() {
+            winCounts.textContent = `Human Wins: ${humanWins} | AI Wins: ${aiWins} | Draws: ${draws}`;
+        }
+
+        restartButton.addEventListener('click', restartGame);
+
+        renderBoard();
+    </script>
+</body>
+</html>
